@@ -26,8 +26,6 @@
 #define EPD_W21_CS_1 digitalWrite(m_pin_cs,HIGH)
 #define EPD_W21_DC_0  digitalWrite(m_pin_dc,LOW)
 #define EPD_W21_DC_1  digitalWrite(m_pin_dc,HIGH)
-#define EPD_W21_RST_0 digitalWrite(m_pin_res,LOW)
-#define EPD_W21_RST_1 digitalWrite(m_pin_res,HIGH)
 
 /**
  *
