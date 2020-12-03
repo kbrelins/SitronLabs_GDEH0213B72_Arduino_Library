@@ -213,9 +213,9 @@ int gdeh0213b72::hibernate(void) {
 
 /**
  *
- * @param[in] x
- * @param[in] y
- * @param[in] color
+ * @param[in] x The number of pixels along the horizontal axis, starting from the bottom.
+ * @param[in] y The number of pixels along the vertical axis, starting from the top.
+ * @param[in] color 0 for black, anything else for white.
  */
 void gdeh0213b72::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
@@ -240,17 +240,18 @@ void gdeh0213b72::drawPixel(int16_t x, int16_t y, uint16_t color) {
 }
 
 /**
- *
- * @param[in] color
+ * Fills the screen with one of the two colors.
+ * @param[in] color 0 for black, anything else for white.
  */
 void gdeh0213b72::fillScreen(uint16_t color) {
-	if (color) fill_black();
-	else fill_white();
+	if (color) fill_white();
+	else fill_black();
 }
 
 /**
  *
  * @param[in] i
+ * @note Modifications will only be visible on the display after a call to one of the draw functions.
  */
 void gdeh0213b72::invertDisplay(bool i) {
 
