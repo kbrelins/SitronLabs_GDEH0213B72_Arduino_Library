@@ -34,8 +34,8 @@ private:
 	uint8_t m_pin_cs;
 	uint8_t m_pin_clock;
 	uint8_t m_pin_data;
-	const size_t m_width = 250;
-	const size_t m_height = 122;
+	const size_t m_width = 122;
+	const size_t m_height = 250;
 	void inline m_delay_ns(const uint32_t ns);
 	void m_spi_delay(unsigned char xrate);
 	void m_spi_write(unsigned char value);

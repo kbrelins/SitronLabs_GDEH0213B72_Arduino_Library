@@ -138,10 +138,8 @@ int gdeh0213b72::fill_black(void) {
 	m_send_command(0x24);
 
 	/* Write contents of ram */
-	for (size_t k = 0; k < m_width; k++) {
-		for (size_t i = 0; i < (m_height + 8 - 1) / 8; i++) {
-			m_send_data(0x00);
-		}
+	for (size_t i = 0; i < m_height * ((m_width + 8 - 1) / 8); i++) {
+		m_send_data(0x00);
 	}
 
 	/* Return success */
@@ -160,10 +158,8 @@ int gdeh0213b72::fill_white(void) {
 	m_send_command(0x24);
 
 	/* Write contents of ram */
-	for (size_t k = 0; k < m_width; k++) {
-		for (size_t i = 0; i < (m_height + 8 - 1) / 8; i++) {
-			m_send_data(0xff);
-		}
+	for (size_t i = 0; i < m_height * ((m_width + 8 - 1) / 8); i++) {
+		m_send_data(0xFF);
 	}
 
 	/* Return success */
@@ -178,7 +174,7 @@ int gdeh0213b72::draw_entire(void) {
 	int res;
 
 	/* Send display update command */
-	m_send_command_and_data(0x22, 0xC7);
+	m_send_command_and_send_data(0x22, 0xC7);
 
 	/* Send master activation command */
 	m_send_command(0x20);
@@ -219,24 +215,58 @@ int gdeh0213b72::hibernate(void) {
  */
 void gdeh0213b72::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
+	/* Handle rotation */
+	uint16_t ram_y, ram_x;
+	switch (rotation) {
+		case 0: { // Default rotation, portrait with flex at the bottom
+			ram_x = x;
+			ram_y = y;
+			break;
+		}
+		case 1: { // Rotated 90° clockwise
+			ram_x = y;
+			ram_y = 249 - x;
+			break;
+		}
+		case 2: { // Rotated 180° clockwise
+			ram_x = 121 - x;
+			ram_y = 249 - x;
+			break;
+		}
+		case 3: { // Rotated 270° clockwise
+			ram_x = 121 - y;
+			ram_y = x;
+			break;
+		}
+		default: {
+			CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Invalid rotation!");
+			return;
+		}
+	}
+
 	/* Ensure parameters are valid */
-	if (x < 0 || (uint16_t) x >= m_width || y < 0 || (uint16_t) y >= m_height) {
+	if (x < 0 || y < 0 || ram_x >= m_width || ram_y >= m_height) {
+		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Invalid coordinates!");
 		return;
 	}
 
-	/* Retrieve byte containing pixel value from ram */
-	m_send_command_and_send_data(0x4E, (uint8_t )(x / 8));
-	m_send_command_and_send_data(0x4F, (uint8_t )(y / 256), (uint8_t )(y % 256));
-	m_send_command_and_send_data(0x27, 0x00, 0x00); // TODO : Read
-	uint8_t byte;
+	/* Retrieve byte containing pixel value from ram
+	 * @note First one is a dummy byte */
+	uint8_t byte[2];
+	m_send_command_and_send_data(0x4E, (uint8_t )(ram_x / 8));
+	m_send_command_and_send_data(0x4F, (uint8_t )(ram_y % 256), (uint8_t )(ram_y / 256));
+	m_send_command_and_read_data(0x27, byte, 2);
 
 	/* Modify byte */
-	// TODO
+	if (color) byte[0] = byte[1] | (1 << (7 - (ram_x % 8)));
+	else byte[0] = byte[1] & ~(1 << (7 - (ram_x % 8)));
 
-	/* Write byte containing pixel value to ram */
-	m_send_command_and_send_data(0x4E, (uint8_t )(x / 8));
-	m_send_command_and_send_data(0x4F, (uint8_t )(y / 256), (uint8_t )(y % 256));
-	m_send_command_and_send_data(0x24, 0x00, byte);
+	/* Write modified byte to ram */
+	if (byte[0] != byte[1]) {
+		m_send_command_and_send_data(0x4E, (uint8_t )(ram_x / 8));
+		m_send_command_and_send_data(0x4F, (uint8_t )(ram_y % 256), (uint8_t )(ram_y / 256));
+		m_send_command_and_send_data(0x24, byte[0]);
+	}
 }
 
 /**
