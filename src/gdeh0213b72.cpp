@@ -108,6 +108,25 @@ int gdeh0213b72::setup(const uint8_t pin_busy, const uint8_t pin_res, const uint
 }
 
 /**
+ * Tries to detect the display.
+ * @return true if the display was detected, or false otherwise.
+ */
+bool gdeh0213b72::detect(void) {
+
+	/* Read status register */
+	uint8_t reg_status;
+	m_send_command_and_read_data(0x2F, &reg_status, 1);
+
+	/* Ensure chip id is as expected */
+	if ((reg_status & 0x03) != 0x01) {
+		return false;
+	}
+
+	/* Return success */
+	return true;
+}
+
+/**
  * Fills the entire screen with black pixels.
  * @note Modifications happen in ram, and will only be visible on the display after a call to one of the draw functions.
  * @return 0 in case of success, or a negative error code otherwise.

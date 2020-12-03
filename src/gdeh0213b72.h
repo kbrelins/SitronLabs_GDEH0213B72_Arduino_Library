@@ -18,6 +18,7 @@ class gdeh0213b72: public Adafruit_GFX {
 public:
 	gdeh0213b72();
 	int setup(const uint8_t pin_busy, const uint8_t pin_res, const uint8_t pin_dc, const uint8_t pin_cs, const uint8_t pin_clock, const uint8_t pin_data);
+	bool detect(void);
 	int fill_black(void);
 	int fill_white(void);
 	int hibernate(void);
