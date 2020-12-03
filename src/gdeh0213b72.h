@@ -30,8 +30,6 @@ protected:
 	const size_t m_width = 122; // Panel width, independent of rotation
 	const size_t m_height = 250; // Panel height, independent of rotation
 	void inline m_delay_ns(const uint32_t ns);
-	void m_spi_delay(unsigned char xrate);
-	void m_spi_write(unsigned char value);
 	void m_send_command(const uint8_t command);
 	void m_send_data(const uint8_t data);
 	void m_send_command_and_read_data(const uint8_t command, uint8_t * const data, const size_t length);

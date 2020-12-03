@@ -18,14 +18,6 @@
 
 /* Macros */
 #define m_send_command_and_send_data(command, ...) { m_send_command(command); const uint8_t _data[] = {__VA_ARGS__}; for(size_t i = 0; i < sizeof(_data) / sizeof(uint8_t); i++) m_send_data(_data[i]); }
-#define EPD_W21_MOSI_0  digitalWrite(m_pin_data,LOW)
-#define EPD_W21_MOSI_1  digitalWrite(m_pin_data,HIGH)
-#define EPD_W21_CLK_0 digitalWrite(m_pin_clock,LOW)
-#define EPD_W21_CLK_1 digitalWrite(m_pin_clock,HIGH)
-#define EPD_W21_CS_0 digitalWrite(m_pin_cs,LOW)
-#define EPD_W21_CS_1 digitalWrite(m_pin_cs,HIGH)
-#define EPD_W21_DC_0  digitalWrite(m_pin_dc,LOW)
-#define EPD_W21_DC_1  digitalWrite(m_pin_dc,HIGH)
 
 /**
  *
@@ -137,41 +129,6 @@ int gdeh0213b72::hibernate(void) {
 }
 
 /**
- *
- * @param xrate
- */
-void gdeh0213b72::m_spi_delay(unsigned char xrate) {
-	unsigned char i;
-	while (xrate) {
-		for (i = 0; i < 2; i++)
-			;
-		xrate--;
-	}
-}
-
-/**
- *
- * @param value
- */
-void gdeh0213b72::m_spi_write(unsigned char value) {
-	unsigned char i;
-	m_spi_delay(1);
-	for (i = 0; i < 8; i++) {
-		EPD_W21_CLK_0;
-		m_spi_delay(1);
-		if (value & 0x80)
-		EPD_W21_MOSI_1;
-		else
-		EPD_W21_MOSI_0;
-		value = (value << 1);
-		m_spi_delay(1);
-		delayMicroseconds(1);
-		EPD_W21_CLK_1;
-		m_spi_delay(1);
-	}
-}
-
-/**
  * Waits for at least the given number of nanoseconds.
  * @param[in] ns The minimum number of nanoseconds to wait for.
  * @note This has a lot of room for improvement.
@@ -191,12 +148,23 @@ void inline __attribute__((always_inline)) gdeh0213b72::m_delay_ns(const uint32_
  */
 void gdeh0213b72::m_send_command(const uint8_t command) {
 
-	/* Send command code */
-	m_spi_delay(1);
-	EPD_W21_CS_0;
-	EPD_W21_DC_0;
-	m_spi_write(command);
-	EPD_W21_CS_1;
+	/* Assert chip select */
+	digitalWrite(m_pin_cs, 0);
+	m_delay_ns(20); // tCSSU 20ns
+
+	/* Send command */
+	digitalWrite(m_pin_dc, 0);
+	for (uint8_t i = 0; i < 8; i++) {
+		digitalWrite(m_pin_clock, 0);
+		digitalWrite(m_pin_data, (command & (1 << (7 - i))));
+		m_delay_ns(20); // tSCLLOW 20ns
+		digitalWrite(m_pin_clock, 1);
+		m_delay_ns(20); // tSCLHIGH 20ns
+	}
+
+	/* Release chip select */
+	digitalWrite(m_pin_cs, 1);
+	m_delay_ns(250); // tCSHIGH 250ns
 }
 
 /**
@@ -208,12 +176,23 @@ void gdeh0213b72::m_send_command(const uint8_t command) {
  */
 void gdeh0213b72::m_send_data(const uint8_t data) {
 
-	/* Send data byte */
-	m_spi_delay(1);
-	EPD_W21_CS_0;
-	EPD_W21_DC_1;
-	m_spi_write(data);
-	EPD_W21_CS_1;
+	/* Assert chip select */
+	digitalWrite(m_pin_cs, 0);
+	m_delay_ns(20); // tCSSU 20ns
+
+	/* Send data */
+	digitalWrite(m_pin_dc, 1);
+	for (uint8_t i = 0; i < 8; i++) {
+		digitalWrite(m_pin_clock, 0);
+		digitalWrite(m_pin_data, (data & (1 << (7 - i))));
+		m_delay_ns(20); // tSCLLOW 20ns
+		digitalWrite(m_pin_clock, 1);
+		m_delay_ns(20); // tSCLHIGH 20ns
+	}
+
+	/* Release chip select */
+	digitalWrite(m_pin_cs, 1);
+	m_delay_ns(250); // tCSHIGH 250ns
 }
 
 /**
