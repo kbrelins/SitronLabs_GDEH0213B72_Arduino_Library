@@ -29,13 +29,6 @@
 
 /**
  *
- */
-gdeh0213b72::gdeh0213b72() :
-		Adafruit_GFX(m_width, m_height) {
-}
-
-/**
- *
  * @param pin_busy (8 for example)
  * @param pin_res (9 for example)
  * @param pin_dc (10 for example)
@@ -85,9 +78,9 @@ int gdeh0213b72::setup(const uint8_t pin_busy, const uint8_t pin_res, const uint
 	m_send_command_and_send_data(0x74, 0x54); //set analog block control
 	m_send_command_and_send_data(0x7E, 0x3B); //set digital block control
 	m_send_command_and_send_data(0x01, 0xF9, 0x00, 0x00); //Driver output control
-	m_send_command_and_send_data(0x11, 0x01); //data entry mode
-	m_send_command_and_send_data(0x44, 0x00, 0x0F);             //set Ram-X address start/end position //0x0C-->(15+1)*8=128
-	m_send_command_and_send_data(0x45, 0xF9, 0x00, 0x00, 0x00); //set Ram-Y address start/end position //0xF9-->(249+1)=250
+	m_send_command_and_send_data(0x11, 0x03); //data entry mode
+	m_send_command_and_send_data(0x44, 0x00, (uint8_t )((m_width + 8 - 1) / 8 - 1));                                    //set Ram-X address start/end position //0x0C-->(15+1)*8=128
+	m_send_command_and_send_data(0x45, 0x00, 0x00, (uint8_t )((m_height - 1) % 256), (uint8_t )((m_height - 1) / 256)); //set Ram-Y address start/end position //0xF9-->(249+1)=250
 	m_send_command_and_send_data(0x3C, 0x03); //BorderWavefrom
 	m_send_command_and_send_data(0x2C, 0x55); //VCOM Voltage
 	m_send_command_and_send_data(0x03, k_lut_entire[70]); //
@@ -127,70 +120,6 @@ bool gdeh0213b72::detect(void) {
 }
 
 /**
- * Fills the entire screen with black pixels.
- * @note Modifications happen in ram, and will only be visible on the display after a call to one of the draw functions.
- * @return 0 in case of success, or a negative error code otherwise.
- */
-int gdeh0213b72::fill_black(void) {
-	int res;
-
-	/* Send command to write into ram */
-	m_send_command(0x24);
-
-	/* Write contents of ram */
-	for (size_t i = 0; i < m_height * ((m_width + 8 - 1) / 8); i++) {
-		m_send_data(0x00);
-	}
-
-	/* Return success */
-	return 0;
-}
-
-/**
- * Fills the entire screen with white pixels.
- * @note Modifications happen in ram, and will only be visible on the display after a call to one of the draw functions.
- * @return 0 in case of success, or a negative error code otherwise.
- */
-int gdeh0213b72::fill_white(void) {
-	int res;
-
-	/* Send command to write into ram */
-	m_send_command(0x24);
-
-	/* Write contents of ram */
-	for (size_t i = 0; i < m_height * ((m_width + 8 - 1) / 8); i++) {
-		m_send_data(0xFF);
-	}
-
-	/* Return success */
-	return 0;
-}
-
-/**
- *
- * @return 0 in case of success, or a negative error code otherwise.
- */
-int gdeh0213b72::draw_entire(void) {
-	int res;
-
-	/* Send display update command */
-	m_send_command_and_send_data(0x22, 0xC7);
-
-	/* Send master activation command */
-	m_send_command(0x20);
-
-	/* Wait for end of update signaled by busy pin */
-	res = m_busy_wait();
-	if (res < 0) {
-		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Failed to perform update!");
-		return res;
-	}
-
-	/* Return success */
-	return 0;
-}
-
-/**
  *
  * @note To Exit Deep Sleep mode, User required to send HWRESET to the driver
  */
@@ -205,92 +134,6 @@ int gdeh0213b72::hibernate(void) {
 
 	/* Return success */
 	return 0;
-}
-
-/**
- *
- * @param[in] x The number of pixels along the horizontal axis, starting from the bottom.
- * @param[in] y The number of pixels along the vertical axis, starting from the top.
- * @param[in] color 0 for black, anything else for white.
- */
-void gdeh0213b72::drawPixel(int16_t x, int16_t y, uint16_t color) {
-
-	/* Handle rotation */
-	uint16_t ram_y, ram_x;
-	switch (rotation) {
-		case 0: { // Default rotation, portrait with flex at the bottom
-			ram_x = x;
-			ram_y = y;
-			break;
-		}
-		case 1: { // Rotated 90° clockwise
-			ram_x = y;
-			ram_y = 249 - x;
-			break;
-		}
-		case 2: { // Rotated 180° clockwise
-			ram_x = 121 - x;
-			ram_y = 249 - x;
-			break;
-		}
-		case 3: { // Rotated 270° clockwise
-			ram_x = 121 - y;
-			ram_y = x;
-			break;
-		}
-		default: {
-			CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Invalid rotation!");
-			return;
-		}
-	}
-
-	/* Ensure parameters are valid */
-	if (x < 0 || y < 0 || ram_x >= m_width || ram_y >= m_height) {
-		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Invalid coordinates!");
-		return;
-	}
-
-	/* Retrieve byte containing pixel value from ram
-	 * @note First one is a dummy byte */
-	uint8_t byte[2];
-	m_send_command_and_send_data(0x4E, (uint8_t )(ram_x / 8));
-	m_send_command_and_send_data(0x4F, (uint8_t )(ram_y % 256), (uint8_t )(ram_y / 256));
-	m_send_command_and_read_data(0x27, byte, 2);
-
-	/* Modify byte */
-	if (color) byte[0] = byte[1] | (1 << (7 - (ram_x % 8)));
-	else byte[0] = byte[1] & ~(1 << (7 - (ram_x % 8)));
-
-	/* Write modified byte to ram */
-	if (byte[0] != byte[1]) {
-		m_send_command_and_send_data(0x4E, (uint8_t )(ram_x / 8));
-		m_send_command_and_send_data(0x4F, (uint8_t )(ram_y % 256), (uint8_t )(ram_y / 256));
-		m_send_command_and_send_data(0x24, byte[0]);
-	}
-}
-
-/**
- * Fills the screen with one of the two colors.
- * @param[in] color 0 for black, anything else for white.
- */
-void gdeh0213b72::fillScreen(uint16_t color) {
-	if (color) fill_white();
-	else fill_black();
-}
-
-/**
- *
- * @param[in] i
- * @note Modifications will only be visible on the display after a call to one of the draw functions.
- */
-void gdeh0213b72::invertDisplay(bool i) {
-
-	/* Send display update control 1 command */
-	if (i) {
-		m_send_command_and_send_data(0x21, 0x08);
-	} else {
-		m_send_command_and_send_data(0x21, 0x00);
-	}
 }
 
 /**
@@ -462,3 +305,182 @@ const PROGMEM uint8_t gdeh0213b72::k_lut_entire[] = { /*
 	0x00, 0x00, 0x00, 0x00, 0x00, // TP5 A~D RP5
 	0x00, 0x00, 0x00, 0x00, 0x00, // TP6 A~D RP6
 	0x15, 0x41, 0xA8, 0x32, 0x30, 0x0A, };
+
+/**
+ *
+ */
+gdeh0213b72_fast::gdeh0213b72_fast(void) :
+		GFXcanvas1(122, 250) {
+}
+
+/**
+ *
+ * @param[in] i
+ * @note Modifications will only be visible on the display after a call to one of the draw functions.
+ */
+void gdeh0213b72_fast::invertDisplay(bool i) {
+
+	/* Send display update control 1 command */
+	if (i) {
+		m_send_command_and_send_data(0x21, 0x08);
+	} else {
+		m_send_command_and_send_data(0x21, 0x00);
+	}
+}
+
+/**
+ * Requests the display to display the contents of the entire ram.
+ * @return 0 in case of success, or a negative error code otherwise.
+ */
+int gdeh0213b72_fast::refresh_entire(void) {
+	int res;
+
+	/* Update display ram with local contents */
+	m_send_command_and_send_data(0x4E, 0);
+	m_send_command_and_send_data(0x4F, 0, 0);
+	m_send_command(0x24);
+	uint8_t *buffer_start = getBuffer();
+	for (uint16_t i = 0; i < 4000; i++) {
+		m_send_data(buffer_start[i]);
+	}
+
+	/* Send display update command */
+	m_send_command_and_send_data(0x22, 0xC7);
+
+	/* Send master activation command */
+	m_send_command(0x20);
+
+	/* Wait for end of update signaled by busy pin */
+	res = m_busy_wait();
+	if (res < 0) {
+		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Failed to perform update!");
+		return res;
+	}
+
+	/* Return success */
+	return 0;
+}
+
+/**
+ *
+ */
+gdeh0213b72_slow::gdeh0213b72_slow(void) :
+		Adafruit_GFX(122, 250) {
+}
+
+/**
+ *
+ * @param[in] i
+ * @note Modifications will only be visible on the display after a call to one of the draw functions.
+ */
+void gdeh0213b72_slow::invertDisplay(bool i) {
+
+	/* Send display update control 1 command */
+	if (i) {
+		m_send_command_and_send_data(0x21, 0x08);
+	} else {
+		m_send_command_and_send_data(0x21, 0x00);
+	}
+}
+
+/**
+ *
+ * @param[in] x The number of pixels along the horizontal axis, starting from the bottom.
+ * @param[in] y The number of pixels along the vertical axis, starting from the top.
+ * @param[in] color 0 for black, anything else for white.
+ */
+void gdeh0213b72_slow::drawPixel(int16_t x, int16_t y, uint16_t color) {
+
+	/* Handle rotation */
+	uint16_t ram_y, ram_x;
+	switch (rotation) {
+		case 0: { // Default rotation, portrait with flex at the bottom
+			ram_x = x;
+			ram_y = y;
+			break;
+		}
+		case 1: { // Rotated 90° clockwise
+			ram_x = y;
+			ram_y = 249 - x;
+			break;
+		}
+		case 2: { // Rotated 180° clockwise
+			ram_x = 121 - x;
+			ram_y = 249 - x;
+			break;
+		}
+		case 3: { // Rotated 270° clockwise
+			ram_x = 121 - y;
+			ram_y = x;
+			break;
+		}
+		default: {
+			CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Invalid rotation!");
+			return;
+		}
+	}
+
+	/* Ensure parameters are valid */
+	if (x < 0 || y < 0 || ram_x >= m_width || ram_y >= m_height) {
+		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Invalid coordinates!");
+		return;
+	}
+
+	/* Retrieve byte containing pixel value from ram
+	 * @note First one is a dummy byte */
+	uint8_t byte[2];
+	m_send_command_and_send_data(0x4E, (uint8_t )(ram_x / 8));
+	m_send_command_and_send_data(0x4F, (uint8_t )(ram_y % 256), (uint8_t )(ram_y / 256));
+	m_send_command_and_read_data(0x27, byte, 2);
+
+	/* Modify byte */
+	if (color) byte[0] = byte[1] | (1 << (7 - (ram_x % 8)));
+	else byte[0] = byte[1] & ~(1 << (7 - (ram_x % 8)));
+
+	/* Write modified byte to ram */
+	if (byte[0] != byte[1]) {
+		m_send_command_and_send_data(0x4E, (uint8_t )(ram_x / 8));
+		m_send_command_and_send_data(0x4F, (uint8_t )(ram_y % 256), (uint8_t )(ram_y / 256));
+		m_send_command_and_send_data(0x24, byte[0]);
+	}
+}
+
+/**
+ * Fills the entire screen with the given color.
+ * @note Modifications happen in ram, and will only be visible on the display after a call to one of the draw functions.
+ * @return 0 in case of success, or a negative error code otherwise.
+ */
+void gdeh0213b72_slow::fillScreen(uint16_t color) {
+
+	/* Send command to write into ram */
+	m_send_command(0x24);
+
+	/* Write contents of ram */
+	for (size_t i = 0; i < m_height * ((m_width + 8 - 1) / 8); i++) {
+		m_send_data(color ? 0xFF : 0x00);
+	}
+}
+
+/**
+ * Requests the display to display the contents of the entire ram.
+ * @return 0 in case of success, or a negative error code otherwise.
+ */
+int gdeh0213b72_slow::refresh_entire(void) {
+	int res;
+
+	/* Send display update command */
+	m_send_command_and_send_data(0x22, 0xC7);
+
+	/* Send master activation command */
+	m_send_command(0x20);
+
+	/* Wait for end of update signaled by busy pin */
+	res = m_busy_wait();
+	if (res < 0) {
+		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Failed to perform update!");
+		return res;
+	}
+
+	/* Return success */
+	return 0;
+}
