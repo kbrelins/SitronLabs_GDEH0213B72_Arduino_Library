@@ -174,10 +174,12 @@ void gdeh0213b72::m_spi_write(unsigned char value) {
 /**
  * Waits for at least the given number of nanoseconds.
  * @param[in] ns The minimum number of nanoseconds to wait for.
- * @note This has a lot of room for improvement as right now times are rounded up to the nearest microsecond.
+ * @note This has a lot of room for improvement.
  */
-void inline gdeh0213b72::m_delay_ns(const uint32_t ns) {
-	delayMicroseconds((ns + 999) / 1000);
+void inline __attribute__((always_inline)) gdeh0213b72::m_delay_ns(const uint32_t ns) {
+	for (uint8_t cycles = 2; cycles < (ns * 1000) / (F_CPU / 1000); cycles++) {
+		asm("nop");
+	}
 }
 
 /**
