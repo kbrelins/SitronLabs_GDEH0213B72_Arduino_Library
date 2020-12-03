@@ -17,7 +17,7 @@
 #define ALLSCREEN_GRAGHBYTES  4000
 
 /* Macros */
-#define m_send_command_and_data(command, ...) ({ int _res; _res = m_send_command(command); const uint8_t _data[] = {__VA_ARGS__}; for(size_t i = 0; i < sizeof(_data) / sizeof(uint8_t); i++) _res |= m_send_data(_data[i]); _res; })
+#define m_send_command_and_send_data(command, ...) { m_send_command(command); const uint8_t _data[] = {__VA_ARGS__}; for(size_t i = 0; i < sizeof(_data) / sizeof(uint8_t); i++) m_send_data(_data[i]); }
 #define EPD_W21_MOSI_0  digitalWrite(m_pin_data,LOW)
 #define EPD_W21_MOSI_1  digitalWrite(m_pin_data,HIGH)
 #define EPD_W21_CLK_0 digitalWrite(m_pin_clock,LOW)
@@ -74,30 +74,30 @@ int gdeh0213b72::setup(const uint8_t pin_busy, const uint8_t pin_res, const uint
 	}
 
 	/* Perform software reset */
-	res = m_send_command(0x12);
-	res |= m_busy_wait();
+	m_send_command(0x12);
+	res = m_busy_wait();
 	if (res < 0) {
 		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Timed out performing sw reset!");
 		return res;
 	}
 
 	/* Send configuration */
-	res |= m_send_command_and_data(0x74, 0x54); //set analog block control
-	res |= m_send_command_and_data(0x7E, 0x3B); //set digital block control
-	res |= m_send_command_and_data(0x01, 0xF9, 0x00, 0x00); //Driver output control
-	res |= m_send_command_and_data(0x11, 0x01); //data entry mode
-	res |= m_send_command_and_data(0x44, 0x00, 0x0F);             //set Ram-X address start/end position //0x0C-->(15+1)*8=128
-	res |= m_send_command_and_data(0x45, 0xF9, 0x00, 0x00, 0x00); //set Ram-Y address start/end position //0xF9-->(249+1)=250
-	res |= m_send_command_and_data(0x3C, 0x03); //BorderWavefrom
-	res |= m_send_command_and_data(0x2C, 0x55); //VCOM Voltage
-	res |= m_send_command_and_data(0x03, k_lut_entire[70]); //
-	res |= m_send_command_and_data(0x04, k_lut_entire[71], k_lut_entire[72], k_lut_entire[73]);
-	res |= m_send_command_and_data(0x3A, k_lut_entire[74]); //Dummy Line
-	res |= m_send_command_and_data(0x3B, k_lut_entire[75]); //Gate time
-	res |= m_lut_use((unsigned char*) k_lut_entire); //LUT
-	res |= m_send_command_and_data(0x4E, 0x00);       // set RAM x address count to 0;
-	res |= m_send_command_and_data(0x4F, 0xF9, 0x00); // set RAM y address count to 0X127;
-	res |= m_busy_wait();
+	m_send_command_and_send_data(0x74, 0x54); //set analog block control
+	m_send_command_and_send_data(0x7E, 0x3B); //set digital block control
+	m_send_command_and_send_data(0x01, 0xF9, 0x00, 0x00); //Driver output control
+	m_send_command_and_send_data(0x11, 0x01); //data entry mode
+	m_send_command_and_send_data(0x44, 0x00, 0x0F);             //set Ram-X address start/end position //0x0C-->(15+1)*8=128
+	m_send_command_and_send_data(0x45, 0xF9, 0x00, 0x00, 0x00); //set Ram-Y address start/end position //0xF9-->(249+1)=250
+	m_send_command_and_send_data(0x3C, 0x03); //BorderWavefrom
+	m_send_command_and_send_data(0x2C, 0x55); //VCOM Voltage
+	m_send_command_and_send_data(0x03, k_lut_entire[70]); //
+	m_send_command_and_send_data(0x04, k_lut_entire[71], k_lut_entire[72], k_lut_entire[73]);
+	m_send_command_and_send_data(0x3A, k_lut_entire[74]); //Dummy Line
+	m_send_command_and_send_data(0x3B, k_lut_entire[75]); //Gate time
+	m_lut_use((unsigned char*) k_lut_entire); //LUT
+	m_send_command_and_send_data(0x4E, 0x00);       // set RAM x address count to 0;
+	m_send_command_and_send_data(0x4F, 0xF9, 0x00); // set RAM y address count to 0X127;
+	res = m_busy_wait();
 	if (res < 0) {
 		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Timed out configuring display!");
 		return res;
@@ -180,14 +180,9 @@ int gdeh0213b72::draw_entire(void) {
  * @note To Exit Deep Sleep mode, User required to send HWRESET to the driver
  */
 int gdeh0213b72::hibernate(void) {
-	int res;
 
 	/* Send deep sleep mode command */
-	res = m_send_command_and_data(0x10, 0x01);
-	if (res < 0) {
-		CONFIG_GDEH0213B72_DEBUG_FUNCTION(" [e] Failed to send hibernate command!");
-		return res;
-	}
+	m_send_command_and_send_data(0x10, 0x01);
 
 	/* Wait a bit
 	 * @note I don't know why? */
@@ -211,18 +206,18 @@ void gdeh0213b72::drawPixel(int16_t x, int16_t y, uint16_t color) {
 	}
 
 	/* Retrieve byte containing pixel value from ram */
-	m_send_command_and_data(0x4E, (uint8_t )(x / 8));
-	m_send_command_and_data(0x4F, (uint8_t )(y / 256), (uint8_t )(y % 256));
-	m_send_command_and_data(0x27, 0x00, 0x00); // TODO : Read
+	m_send_command_and_send_data(0x4E, (uint8_t )(x / 8));
+	m_send_command_and_send_data(0x4F, (uint8_t )(y / 256), (uint8_t )(y % 256));
+	m_send_command_and_send_data(0x27, 0x00, 0x00); // TODO : Read
 	uint8_t byte;
 
 	/* Modify byte */
 	// TODO
 
 	/* Write byte containing pixel value to ram */
-	m_send_command_and_data(0x4E, (uint8_t )(x / 8));
-	m_send_command_and_data(0x4F, (uint8_t )(y / 256), (uint8_t )(y % 256));
-	m_send_command_and_data(0x24, 0x00, byte);
+	m_send_command_and_send_data(0x4E, (uint8_t )(x / 8));
+	m_send_command_and_send_data(0x4F, (uint8_t )(y / 256), (uint8_t )(y % 256));
+	m_send_command_and_send_data(0x24, 0x00, byte);
 }
 
 /**
@@ -242,9 +237,9 @@ void gdeh0213b72::invertDisplay(bool i) {
 
 	/* Send display update control 1 command */
 	if (i) {
-		m_send_command_and_data(0x21, 0x08);
+		m_send_command_and_send_data(0x21, 0x08);
 	} else {
-		m_send_command_and_data(0x21, 0x00);
+		m_send_command_and_send_data(0x21, 0x00);
 	}
 }
 
@@ -284,11 +279,22 @@ void gdeh0213b72::m_spi_write(unsigned char value) {
 }
 
 /**
- *
- * @param[in] command
- * @return 0 in case of success, or a negative error code otherwise.
+ * Waits for at least the given number of nanoseconds.
+ * @param[in] ns The minimum number of nanoseconds to wait for.
+ * @note This has a lot of room for improvement as right now times are rounded up to the nearest microsecond.
  */
-int gdeh0213b72::m_send_command(const uint8_t command) {
+void inline gdeh0213b72::m_delay_ns(const uint32_t ns) {
+	delayMicroseconds((ns + 999) / 1000);
+}
+
+/**
+ * Sends a command.
+ * @param[in] command The command byte to send.
+ * @return 0 in case of success, or a negative error code otherwise.
+ * @see Datasheet section 7.2 "MCU Serial Peripheral Interface (4-wire SPI)".
+ * @see Datasheet section 13 "Serial Peripheral Interface Timing".
+ */
+void gdeh0213b72::m_send_command(const uint8_t command) {
 
 	/* Send command code */
 	m_spi_delay(1);
@@ -296,17 +302,16 @@ int gdeh0213b72::m_send_command(const uint8_t command) {
 	EPD_W21_DC_0;
 	m_spi_write(command);
 	EPD_W21_CS_1;
-
-	/* Return success */
-	return 0;
 }
 
 /**
- *
- * @param[in] data
+ * Sends a data bye.
+ * @param[in] data The data byte to send.
  * @return 0 in case of success, or a negative error code otherwise.
+ * @see Datasheet section 7.2 "MCU Serial Peripheral Interface (4-wire SPI)".
+ * @see Datasheet section 13 "Serial Peripheral Interface Timing".
  */
-int gdeh0213b72::m_send_data(const uint8_t data) {
+void gdeh0213b72::m_send_data(const uint8_t data) {
 
 	/* Send data byte */
 	m_spi_delay(1);
@@ -314,9 +319,51 @@ int gdeh0213b72::m_send_data(const uint8_t data) {
 	EPD_W21_DC_1;
 	m_spi_write(data);
 	EPD_W21_CS_1;
+}
 
-	/* Return success */
-	return 0;
+/**
+ * In one transaction, sends a command and reads data from the spi shared data line.
+ * @param[out] data A pointer to a variable that will be updated with the byte read.
+ * @return 0 in case of success, or a negative error code otherwise.
+ * @see Datasheet section 7.2 "MCU Serial Peripheral Interface (4-wire SPI)".
+ * @see Datasheet section 13 "Serial Peripheral Interface Timing".
+ */
+void gdeh0213b72::m_send_command_and_read_data(const uint8_t command, uint8_t * const data, const size_t length) {
+
+	/* Assert chip select */
+	digitalWrite(m_pin_cs, 0);
+	m_delay_ns(20); // tCSSU 20ns
+
+	/* Send command */
+	pinMode(m_pin_data, OUTPUT);
+	digitalWrite(m_pin_dc, 0);
+	for (uint8_t i = 0; i < 8; i++) {
+		digitalWrite(m_pin_clock, 0);
+		digitalWrite(m_pin_data, (command & (1 << (7 - i))));
+		m_delay_ns(20); // tSCLLOW 20ns
+		digitalWrite(m_pin_clock, 1);
+		m_delay_ns(20); // tSCLHIGH 20ns
+	}
+
+	/* Read data */
+	pinMode(m_pin_data, INPUT_PULLUP);
+	digitalWrite(m_pin_dc, 1);
+	for (size_t j = 0; j < length; j++) {
+		data[j] = 0;
+		for (uint8_t i = 0; i < 8; i++) {
+			digitalWrite(m_pin_clock, 0);
+			m_delay_ns(180); // tSCLLOW 180ns
+			digitalWrite(m_pin_clock, 1);
+			data[j] <<= 1;
+			data[j] |= digitalRead(m_pin_data);
+			m_delay_ns(180); // tSCLHIGH 180ns
+		}
+	}
+	pinMode(m_pin_data, OUTPUT);
+
+	/* Release chip select */
+	digitalWrite(m_pin_cs, 1);
+	m_delay_ns(250); // tCSHIGH 250ns
 }
 
 /**
@@ -339,17 +386,13 @@ int gdeh0213b72::m_busy_wait(void) {
  *
  * @param[in] wave_data A pointer to a valid lut, stored in program memory.
  */
-int gdeh0213b72::m_lut_use(const uint8_t *wave_data) {
-	int res;
+void gdeh0213b72::m_lut_use(const uint8_t *wave_data) {
 
 	/* Send the write lut register command */
-	res = m_send_command(0x32);
+	m_send_command(0x32);
 	for (size_t count = 0; count < 70; count++) {
-		res |= m_send_data(pgm_read_byte(&wave_data[count]));
+		m_send_data(pgm_read_byte(&wave_data[count]));
 	}
-
-	/* Return */
-	return res;
 }
 
 /**

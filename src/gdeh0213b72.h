@@ -35,11 +35,13 @@ private:
 	uint8_t m_pin_data;
 	const size_t m_width = 250;
 	const size_t m_height = 122;
+	void inline m_delay_ns(const uint32_t ns);
 	void m_spi_delay(unsigned char xrate);
 	void m_spi_write(unsigned char value);
-	int m_send_command(const uint8_t command);
-	int m_send_data(const uint8_t data);
-	int m_lut_use(const uint8_t *wave_data);
+	void m_send_command(const uint8_t command);
+	void m_send_data(const uint8_t data);
+	void m_send_command_and_read_data(const uint8_t command, uint8_t * const data, const size_t length);
+	void m_lut_use(const uint8_t *wave_data);
 	int m_busy_wait(void);
 	static const PROGMEM uint8_t k_lut_entire[];
 };
